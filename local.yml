@@ -1,0 +1,150 @@
+---
+- name: Setup Local Environment
+  hosts: localhost
+  vars:
+    user_name: "kapilgain"
+    home_dir: "/home/{{ user_name }}"
+    personal_dir: "{{ home_dir }}/personal"
+    neovim_repo: 'https://github.com/neovim/neovim.git'
+    oh_my_zsh_dir: "{{ home_dir }}/.oh-my-zsh"
+    zsh_custom_dir: "{{ oh_my_zsh_dir }}/custom"
+  tasks:
+    - name: Create personal directory
+      file:
+        path: "{{ personal_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Install dependencies for building Neovim
+      become: yes
+      apt:
+        name:
+          - cmake
+          - curl
+          - gettext
+          - ninja-build
+          - unzip
+        state: present
+        update_cache: yes
+
+    - name: Clone Neovim from GitHub
+      git:
+        repo: "{{ neovim_repo }}"
+        dest: "{{ personal_dir }}/neovim"
+        version: stable
+        clone: yes
+        update: yes
+
+    - name: Build Neovim
+      shell: |
+        cd "{{ personal_dir }}/neovim"
+        make CMAKE_BUILD_TYPE=Release
+      args:
+        executable: /bin/bash
+
+    - name: Install Neovim
+      become: yes
+      shell: |
+        cd "{{ personal_dir }}/neovim"
+        make install
+      args:
+        executable: /bin/bash
+
+    - name: Alias vim to nvim for bash
+      lineinfile:
+        path: "{{ home_dir }}/.bashrc"
+        line: "alias vim='nvim'"
+        create: yes
+
+    - name: Install NvChad
+      git:
+        repo: 'https://github.com/NvChad/NvChad'
+        dest: "{{ home_dir }}/.config/nvim"
+        depth: 1
+
+    - name: Install Zsh
+      become: yes
+      apt:
+        name: zsh
+        state: present
+
+    - name: Remove existing Oh My Zsh directory
+      file:
+        path: "{{ oh_my_zsh_dir }}"
+        state: absent
+
+    - name: Install Oh My Zsh
+      shell: |
+        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      args:
+        executable: /bin/bash
+      environment:
+        RUNZSH: 'no'
+
+    - name: Ensure ZSH_CUSTOM directory exists
+      file:
+        path: "{{ zsh_custom_dir }}"
+        state: directory
+
+    - name: Set custom Zsh aliases
+      copy:
+        dest: "{{ zsh_custom_dir }}/aliases.zsh"
+        content: |
+          alias vim='nvim'
+        mode: '0644'
+
+    - name: Install zsh-autosuggestions
+      git:
+        repo: 'https://github.com/zsh-users/zsh-autosuggestions.git'
+        dest: "{{ zsh_custom_dir }}/plugins/zsh-autosuggestions"
+        clone: yes
+        update: yes
+
+    - name: Enable zsh-autosuggestions in .zshrc
+      lineinfile:
+        path: "{{ home_dir }}/.zshrc"
+        regexp: '^plugins=\(([^)]*)\)'
+        line: 'plugins=(\1 zsh-autosuggestions)'
+        backrefs: yes
+
+    - name: Change default shell to Zsh
+      become: yes
+      user:
+        name: "{{ user_name }}"
+        shell: "{{ lookup('pipe', 'which zsh') }}"
+
+    - name: Install Tmux
+      become: yes
+      apt:
+        name: tmux
+        state: present
+
+    - name: Install essential CLI tools
+      become: yes
+      apt:
+        name:
+          - bat
+          - fd-find
+          - fzf
+          - ripgrep
+          - xclip
+        state: present
+        update_cache: yes
+
+    - name: Install nvm
+      shell: |
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash
+      args:
+        executable: /bin/bash
+      environment:
+        HOME: "{{ home_dir }}"
+
+    - name: Install Node.js LTS using nvm
+      shell: |
+        export NVM_DIR="{{ home_dir }}/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        nvm install --lts
+      args:
+        executable: /bin/bash
+      environment:
+        HOME: "{{ home_dir }}"
