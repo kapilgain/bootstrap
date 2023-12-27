@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-if [ "$#" -lt 2 ]; then
+MODE="repo"
+PLAYBOOK=""
+
+if [ "$#" -lt 1 ]; then
   echo "Usage: $0 [-t] playbook.yml [extra ansible arguments...]"
   exit 1
 fi
@@ -20,8 +23,11 @@ while getopts ":t" opt; do
 done
 
 shift $((OPTIND-1))
-PLAYBOOK=$1
-shift 1
+
+if [ "$#" -ge 1 ]; then
+  PLAYBOOK=$1
+  shift
+fi
 
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ansible git
