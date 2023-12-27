@@ -3,14 +3,15 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  run-script:
+  build-and-run:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Run Setup Script
-      run: |
-        chmod +x ./setup.sh
-        ./setup.sh local.yml
+    - name: Build Docker Image
+      run: ./docker-build.sh
+
+    - name: Run Docker Container
+      run: ./docker-run.sh
